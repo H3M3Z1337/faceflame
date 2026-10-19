@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>FaceFlame</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0a0a0d;--card:#14141a;--card2:#1b1b23;--text:#f2f2f5;--muted:#8b8b96;--accent:#ff6a00;--danger:#ff3b3b;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:520px;margin:0 auto;min-height:100vh}
+.player-head{display:flex;align-items:center;gap:14px;margin-bottom:20px;animation:fadeUp .5s ease}
+.avatar-wrap{width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--accent);flex-shrink:0;background:var(--card2);position:relative}
+.avatar-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:var(--accent)}
+.player-name{font-size:20px;font-weight:700;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.rank-block{background:var(--card);border-radius:20px;padding:22px 18px;margin-bottom:14px;border:1px solid #23232c;position:relative;overflow:hidden;animation:fadeUp .6s ease}
+.rank-block::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 30%,rgba(255,106,0,.15),transparent 60%);pointer-events:none}
+.rank-top{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.hex{width:78px;height:88px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;animation:pop .7s cubic-bezier(.34,1.56,.64,1)}
+.hex svg{position:absolute;inset:0;width:100%;height:100%}
+.hex .hex-outer{fill:none;stroke:currentColor;stroke-width:3.5;opacity:.35}
+.hex .hex-inner{fill:var(--card2);stroke:currentColor;stroke-width:2.5}
+.hex .hex-num{position:relative;z-index:2;font-size:32px;font-weight:800;color:currentColor;line-height:1}
+.hex-label{font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:6px;text-align:center;text-transform:uppercase}
+.rank-bar-wrap{flex:1;min-width:0}
+.rank-bar{height:18px;background:#25252f;border-radius:4px;overflow:hidden;transform:skewX(-18deg)}
+.rank-bar-fill{height:100%;width:0;background:currentColor;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.rank-bar-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+.rank-title{font-size:32px;font-weight:900;letter-spacing:-1px;line-height:1.1;margin-top:6px;background:linear-gradient(90deg,currentColor,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.elo-big{display:flex;align-items:baseline;gap:8px;margin-top:6px;font-size:15px;color:var(--muted)}
+.elo-big b{font-size:22px;color:var(--text);font-weight:800}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#23232c;border-radius:16px;overflow:hidden;margin-bottom:14px;animation:fadeUp .7s ease}
+.stat{background:var(--card);padding:14px 8px;text-align:center}
+.stat b{display:block;font-size:20px;font-weight:800;color:var(--accent)}
+.stat small{display:block;font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.5px}
+.section{background:var(--card);border-radius:20px;padding:16px;margin-bottom:14px;border:1px solid #23232c;animation:fadeUp .8s ease}
+.section h3{font-size:13px;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #23232c;font-size:14px}
+.row:last-child{border-bottom:none}
+.res-win{color:#3ecf4c;font-weight:700}
+.res-loss{color:#ff3b3b;font-weight:700}
+.delta-pos{color:#3ecf4c;font-size:13px}
+.delta-neg{color:#ff3b3b;font-size:13px}
+.muted{color:var(--muted);text-align:center;padding:8px 0}
+#adminPanel{display:none;border-color:var(--accent);box-shadow:0 0 15px rgba(255,106,0,0.1)}
+.admin-input{width:100%;padding:10px;background:#0a0a0d;border:1px solid #333;border-radius:8px;color:#fff;margin-bottom:10px;font-size:14px}
+.admin-btn{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:bold;font-size:14px;cursor:pointer}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<div class="player-head">
+  <div class="avatar-wrap" id="avatar"></div>
+  <div style="min-width:0">
+    <div class="player-name" id="uname">Player</div>
+    <div class="player-sub" id="usub">FaceFlame</div>
+  </div>
+</div>
+<div class="rank-block" id="rankBlock">
+  <div class="rank-top">
+    <div>
+      <div class="hex">
+        <svg viewBox="0 0 100 112">
+          <polygon class="hex-outer" points="50,3 97,30 97,82 50,109 3,82 3,30"/>
+          <polygon class="hex-inner" points="50,12 88,34 88,78 50,100 12,78 12,34"/>
+        </svg>
+        <span class="hex-num" id="lvlNum">1</span>
+      </div>
+      <div class="hex-label">Level <span id="lvlLabel">1</span></div>
+    </div>
+    <div class="rank-bar-wrap">
+      <div class="rank-bar"><div class="rank-bar-fill" id="barFill"></div></div>
+      <div class="rank-bar-meta">
+        <span id="lvlProgress">0 / 100</span><span id="lvlPct">0%</span>
+      </div>
+    </div>
+  </div>
+  <div class="rank-title" id="rankTitle">Player</div>
+  <div class="elo-big">ELO <b id="eloVal">0</b></div>
+</div>
+<div class="stats">
+  <div class="stat"><b id="sMatches">0</b><small>МАТЧИ</small></div>
+  <div class="stat"><b id="sWins">0</b><small>ПОБЕДЫ</small></div>
+  <div class="stat"><b id="sLosses">0</b><small>ПОРАЖЕНИЯ</small></div>
+  <div class="stat"><b id="sWr">0%</b><small>WINRATE</small></div>
+</div>
+<div class="section" id="adminPanel">
+  <h3 style="color:var(--accent)">⚙️ Управление ELO (Админ)</h3>
+  <input type="text" id="targetName" class="admin-input" placeholder="Ник игрока (без @)">
+  <input type="number" id="eloAmount" class="admin-input" placeholder="Сколько ELO (напр. 50 или -50)">
+  <button class="admin-btn" onclick="changeElo()">Применить</button>
+  <div id="adminMsg" style="margin-top:10px; font-size:12px; text-align:center;"></div>
+</div>
+<div class="section"><h3>Последние матчи</h3><div id="history"><div class="muted">Загрузка...</div></div></div>
+<div class="section"><h3>Команды</h3><div id="teams"><div class="muted">Загрузка...</div></div></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor?.("#0a0a0d"); }
+const tgUser = tg?.initDataUnsafe?.user;
+const photoUrl = tgUser?.photo_url || null;
+const LEVEL_COLORS = {1:"#8a8a95",2:"#8a8a95",3:"#3ecf4c",4:"#3ecf4c",5:"#ffcf3a",6:"#ffcf3a",7:"#ff6a00",8:"#ff6a00",9:"#ff3b3b",10:"#a855f7"};
+const LEVEL_NAMES = {1:"Новичок",2:"Ученик",3:"Боец",4:"Опытный",5:"Талант",6:"Мастер",7:"Профи",8:"Элита",9:"Легенда",10:"FaceFlame"};
+const LEVEL_STEP = 100;
+function getLevel(elo){ if(elo<0)elo=0; return Math.min(Math.floor(elo/LEVEL_STEP)+1,10); }
+function prog(elo){ const l=getLevel(elo); if(l>=10)return{l,done:100,need:100,pct:100}; const c=(l-1)*LEVEL_STEP;const d=elo-c;return{l,done:d,need:LEVEL_STEP,pct:Math.round(d/LEVEL_STEP*100)}; }
+function animNum(el,f,t,dur=800){const s=performance.now();function step(x){const p=Math.min((x-s)/dur,1);const e=1-Math.pow(1-p,3);el.textContent=Math.round(f+(t-f)*e);if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+function render(d){
+  const elo=d.elo??0;const {l,done,need,pct}=prog(elo);const col=LEVEL_COLORS[l]||"#8a8a95";
+  const name=d.username?"@"+d.username:(tgUser?.first_name||"Player");
+  document.getElementById("uname").textContent=name;
+  document.getElementById("usub").textContent=LEVEL_NAMES[l]||"FaceFlame";
+  const av=document.getElementById("avatar");
+  if(photoUrl){av.innerHTML=`<img src="${photoUrl}">`;}else{av.innerHTML=`<div class="avatar-fallback">${(name.replace("@","")[0]||"P").toUpperCase()}</div>`;}
+  document.getElementById("rankBlock").style.color=col;
+  document.getElementById("lvlNum").textContent=l;document.getElementById("lvlLabel").textContent=l;
+  setTimeout(()=>{document.getElementById("barFill").style.width=pct+"%";},200);
+  document.getElementById("lvlProgress").textContent=done+" / "+need;
+  document.getElementById("lvlPct").textContent=pct+"%";
+  document.getElementById("rankTitle").textContent=name;
+  animNum(document.getElementById("eloVal"),0,elo);
+  const m=d.matches??0,w=d.wins??0,lz=d.losses??0;
+  document.getElementById("sMatches").textContent=m;document.getElementById("sWins").textContent=w;document.getElementById("sLosses").textContent=lz;
+  document.getElementById("sWr").textContent=m?Math.round(w/m*100)+"%":"0%";
+  const h=document.getElementById("history");
+  if(d.history&&d.history.length){h.innerHTML=d.history.map(x=>`<div class="row"><span>Матч #${x.match_id} · ${x.team||""}</span><span><span class="${x.result==='WIN'?'res-win':'res-loss'}">${x.result}</span> <span class="${x.elo_delta>=0?'delta-pos':'delta-neg'}">${x.elo_delta>=0?'+':''}${x.elo_delta}</span></span></div>`).join("");}else h.innerHTML='<div class="muted">Нет матчей</div>';
+  const t=document.getElementById("teams");
+  if(d.teams&&d.teams.length){t.innerHTML=d.teams.map(x=>`<div class="row"><span>${x.name}</span><span>${x.members} 👥</span></div>`).join("");}else t.innerHTML='<div class="muted">Нет команд</div>';
+  if(d.is_admin) document.getElementById("adminPanel").style.display="block";
+}
+async function changeElo(){
+  const target=document.getElementById("targetName").value.trim().replace("@","");
+  const amount=parseInt(document.getElementById("eloAmount").value);
+  const msgEl=document.getElementById("adminMsg");
+  if(!target||isNaN(amount)){msgEl.style.color="var(--danger)";msgEl.textContent="Заполни оба поля!";return;}
+  try{
+    msgEl.style.color="var(--muted)";msgEl.textContent="Отправка...";
+    const r=await fetch("/api/admin_elo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData:tg.initData,target:target,amount:amount})});
+    const res=await r.json();
+    if(r.ok){msgEl.style.color="var(--accent)";msgEl.textContent=`✅ ${target} получил ${amount>0?'+':''}${amount} ELO`;}
+    else{msgEl.style.color="var(--danger)";msgEl.textContent="❌ "+(res.error||"Ошибка");}
+  }catch(e){msgEl.style.color="var(--danger)";msgEl.textContent="❌ Ошибка сети";}
+}
+async function load(){
+  const fb={username:tgUser?.username||"player",elo:0,matches:0,wins:0,losses:0,history:[],teams:[],is_admin:false};
+  if(!tg?.initData){render(fb);return;}
+  try{
+    const r=await fetch("/api/me",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData:tg.initData})});
+    if(!r.ok)throw new Error();render(await r.json());
+  }catch(e){render(fb);}
+}
+load();
+</script>
+</body>
+</html>
